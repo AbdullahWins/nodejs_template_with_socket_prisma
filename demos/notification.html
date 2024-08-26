@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notification App</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+      }
+      .container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      li {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+      }
+      .notification {
+        background-color: #d1d1ff;
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Select Profile</h2>
+      <select id="profileSelect">
+        <option value="">Select Profile</option>
+      </select>
+
+      <h2>Notifications</h2>
+      <ul id="notifications"></ul>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.2.0/socket.io.js"></script>
+    <script>
+      // Define constants for the token and base URL
+      const token =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NjRiM2QyYzBhYmIzM2EyOTU3NjUxN2UiLCJpYXQiOjE3MjE4OTU1MDQsImV4cCI6MTcyNDQ4NzUwNH0.2zk5-FtpeOL1i7IhWpcLRroIayIFQVsVrhcendATH4Y";
+      // const baseUrl = "http://82.180.133.163:5016"; // Replace with your base URL
+      const baseUrl = "http://localhost:5000"; // Replace with your base URL
+      let userId = ""; // Initialize userId as an empty string
+
+      // Function to fetch data from the server
+      async function fetchData(url) {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        return data.data;
+      }
+
+      // Function to populate a select element with options
+      function populateSelect(selectElement, items, placeholder) {
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach((item) => {
+          const option = document.createElement("option");
+          option.value = item._id;
+          option.textContent = item.fullName || item.username;
+          selectElement.appendChild(option);
+        });
+      }
+
+      // Function to update the profile dropdown
+      async function updateProfiles() {
+        const profiles = await fetchData(`${baseUrl}/users/all`);
+        populateSelect(
+          document.getElementById("profileSelect"),
+          profiles,
+          "Select Profile"
+        );
+      }
+
+      // Event listener for DOM content loaded
+      document.addEventListener("DOMContentLoaded", async () => {
+        await updateProfiles();
+
+        // Event listener for changing the profile
+        document
+          .getElementById("profileSelect")
+          .addEventListener("change", (e) => {
+            userId = e.target.value;
+            if (userId) {
+              if (socket.connected) {
+                socket.disconnect();
+              }
+              socket.io.opts.query = { userId };
+              socket.connect();
+            } else {
+              socket.disconnect();
+            }
+          });
+      });
+
+      // Create a socket connection
+      const socket = io(baseUrl, {
+        autoConnect: false, // Don't connect automatically
+      });
+
+      // Receive new notifications
+      socket.on("notification", (notification) => {
+        const item = document.createElement("li");
+        item.textContent = notification.message;
+        item.className = "notification";
+        document.getElementById("notifications").appendChild(item);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Event Chat App</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+      }
+      .container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      li {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+      }
+      .sent {
+        background-color: #d1ffd1;
+        text-align: right;
+      }
+      .received {
+        background-color: #ffd1d1;
+        text-align: left;
+      }
+      form {
+        display: flex;
+        margin-top: 20px;
+      }
+      input,
+      select {
+        flex: 1;
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin-right: 10px;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        border: none;
+        border-radius: 5px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Select Current User</h2>
+      <select id="currentUserSelect">
+        <option value="">Select User</option>
+      </select>
+
+      <h2>Chat with Event</h2>
+      <select id="eventSelect">
+        <option value="">Select Event</option>
+      </select>
+      <ul id="event"></ul>
+      <form id="eventForm" action="">
+        <input
+          id="eventInput"
+          autocomplete="off"
+          placeholder="Type a message"
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.2.0/socket.io.js"></script>
+    <script>
+      // Define constants for the token and base URL
+      const token =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NjRiM2QyYzBhYmIzM2EyOTU3NjUxN2UiLCJpYXQiOjE3MTkyOTM0OTUsImV4cCI6MTcyMTg4NTQ5NX0.B4ud2E9mMX1uG6mpw_MAwOAA1MyK3xlUplVve079kHA";
+      // const baseUrl = "http://82.180.133.163:5016"; // Replace with your base URL
+      const baseUrl = "http://localhost:5000"; // Replace with your base URL
+      let userId = ""; // Initialize userId as an empty string
+
+      // Function to fetch data from the server
+      async function fetchData(url) {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        return data.data;
+      }
+
+      // Function to populate a select element with options
+      function populateSelect(
+        selectElement,
+        items,
+        placeholder,
+        isUser = true
+      ) {
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach((item) => {
+          const option = document.createElement("option");
+          option.value = item._id;
+          option.textContent = isUser
+            ? item.fullName || item.username
+            : item.name;
+          selectElement.appendChild(option);
+        });
+      }
+
+      // Function to update the users dropdown
+      async function updateUsers() {
+        const users = await fetchData(`${baseUrl}/users/all`);
+        populateSelect(
+          document.getElementById("currentUserSelect"),
+          users,
+          "Select User",
+          true
+        );
+      }
+
+      // Function to update the events dropdown
+      async function updateEvents() {
+        const events = await fetchData(`${baseUrl}/chats/my-events`);
+        populateSelect(
+          document.getElementById("eventSelect"),
+          events,
+          "Select Event",
+          false
+        );
+      }
+
+      // Event listener for DOM content loaded
+      document.addEventListener("DOMContentLoaded", async () => {
+        await updateUsers();
+        await updateEvents();
+
+        // Event listener for changing the current user
+        document
+          .getElementById("currentUserSelect")
+          .addEventListener("change", (e) => {
+            userId = e.target.value;
+            if (userId) {
+              if (socket.connected) {
+                socket.disconnect();
+              }
+              socket.io.opts.query = { userId };
+              socket.connect();
+            } else {
+              socket.disconnect();
+            }
+          });
+      });
+
+      // Create a socket connection
+      const socket = io(baseUrl, {
+        autoConnect: false, // Don't connect automatically
+      });
+
+      // Receive new event message
+      socket.on("event", (msg) => {
+        const item = document.createElement("li");
+        item.textContent = msg.message;
+        item.className = msg.sender === userId ? "sent" : "received";
+        document.getElementById("event").appendChild(item);
+      });
+
+      // Send event message
+      document.getElementById("eventForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const message = document.getElementById("eventInput").value;
+        const attachment = document.getElementById("eventInput").value;
+        const eventId = document.getElementById("eventSelect").value;
+        if (!eventId) {
+          alert("Please select a event to chat with.");
+          return;
+        }
+        const data = { senderId: userId, eventId, message, attachment };
+        console.log("data", data);
+        socket.emit("event", data);
+        document.getElementById("eventInput").value = "";
+      });
+    </script>
+  </body>
+</html>

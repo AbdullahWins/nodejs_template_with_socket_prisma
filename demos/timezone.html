@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Netro Systems - Coming Soon</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Arial", sans-serif;
+        background: #282c34;
+        color: #ffffff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        text-align: center;
+      }
+      .container {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 50px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+      h1 {
+        font-size: 3em;
+        margin-bottom: 20px;
+      }
+      p {
+        font-size: 1.2em;
+        margin-bottom: 40px;
+      }
+      .logo {
+        max-width: 150px;
+        margin-bottom: 30px;
+      }
+      #createdAt {
+        font-size: 1.5em;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <img
+        src="https://avatars.githubusercontent.com/u/116887086?v=4"
+        alt="Netro Systems Logo"
+        class="logo"
+      />
+      <h1>Coming Soon</h1>
+      <p>We are working hard to give you a better experience. Stay tuned!</p>
+      <div id="createdAt">Loading...</div>
+    </div>
+
+    <script>
+      async function fetchData() {
+        try {
+          const response = await fetch(
+            "http://localhost:5000/posts/find/6693a9a9f890e1813bbbbc0b",
+            {
+              headers: {
+                Authorization:
+                  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NjRiM2QyYzBhYmIzM2EyOTU3NjUxN2UiLCJpYXQiOjE3MjEyOTY1NTUsImV4cCI6MTcyMzg4ODU1NX0.C4lq3GHEsIuNKMp2cTMfvZGWYpkBoHcIlwo0Pw-LFTY",
+              },
+            }
+          );
+          const data = await response.json();
+          const createdAt = data?.data?.createdAt;
+          const date = new Date(createdAt * 1000); // Multiply by 1000 to convert to milliseconds
+          const formattedTime = date.toLocaleString();
+
+          document.getElementById(
+            "createdAt"
+          ).textContent = `Created At: ${formattedTime}`;
+        } catch (error) {
+          document.getElementById("createdAt").textContent =
+            "Failed to load data";
+          console.error("Error fetching data:", error);
+        }
+      }
+
+      fetchData();
+    </script>
+  </body>
+</html>

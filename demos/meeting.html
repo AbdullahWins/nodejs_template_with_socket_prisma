@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Individual Call App</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+      }
+      .container {
+        display: flex;
+        justify-content: space-between;
+        max-width: 1200px;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      .panel {
+        flex: 1;
+        margin: 0 10px;
+      }
+      .panel h2 {
+        text-align: center;
+      }
+      ul {
+        list-style-type: none;
+        padding: 0;
+      }
+      li {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+      }
+      .sent {
+        background-color: #d1ffd1;
+        text-align: right;
+      }
+      .received {
+        background-color: #ffd1d1;
+        text-align: left;
+      }
+      form {
+        display: flex;
+        margin-top: 20px;
+      }
+      input,
+      select,
+      button {
+        flex: 1;
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin-right: 10px;
+      }
+      button {
+        flex: 0.5;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="panel">
+        <h2>Local User 1</h2>
+        <select id="currentUserSelect1">
+          <option value="">Select User</option>
+        </select>
+        <ul id="callList1"></ul>
+      </div>
+      <div class="panel">
+        <h2>Local User 2</h2>
+        <select id="currentUserSelect2">
+          <option value="">Select User</option>
+        </select>
+        <ul id="callList2"></ul>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.2.0/socket.io.js"></script>
+    <script>
+      // Define constants for the token and base URL
+      const token =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NjRiM2QyYzBhYmIzM2EyOTU3NjUxN2UiLCJpYXQiOjE3MTkyOTM0OTUsImV4cCI6MTcyMTg4NTQ5NX0.B4ud2E9mMX1uG6mpw_MAwOAA1MyK3xlUplVve079kHA";
+      const baseUrl = "http://localhost:5000"; // Replace with your base URL
+      let userId1 = ""; // Initialize userId1 as an empty string
+      let userId2 = ""; // Initialize userId2 as an empty string
+
+      // Function to fetch data from the server
+      async function fetchData(url) {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+        return data.data;
+      }
+
+      // Function to populate a select element with options
+      function populateSelect(
+        selectElement,
+        items,
+        placeholder,
+        isUser = true
+      ) {
+        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach((item) => {
+          const option = document.createElement("option");
+          option.value = item._id;
+          option.textContent = isUser
+            ? item.fullName || item.username
+            : item.name;
+          selectElement.appendChild(option);
+        });
+      }
+
+      // Function to update the users dropdown
+      async function updateUsers() {
+        const users = await fetchData(`${baseUrl}/users/all`);
+        populateSelect(
+          document.getElementById("currentUserSelect1"),
+          users,
+          "Select User",
+          true
+        );
+        populateSelect(
+          document.getElementById("currentUserSelect2"),
+          users,
+          "Select User",
+          true
+        );
+      }
+
+      // Event listener for DOM content loaded
+      document.addEventListener("DOMContentLoaded", async () => {
+        await updateUsers();
+
+        // Event listener for changing the current user 1
+        document
+          .getElementById("currentUserSelect1")
+          .addEventListener("change", (e) => {
+            userId1 = e.target.value;
+            if (userId1) {
+              if (socket1.connected) {
+                socket1.disconnect();
+              }
+              socket1.io.opts.query = { userId: userId1 };
+              socket1.connect();
+            } else {
+              socket1.disconnect();
+            }
+          });
+
+        // Event listener for changing the current user 2
+        document
+          .getElementById("currentUserSelect2")
+          .addEventListener("change", (e) => {
+            userId2 = e.target.value;
+            if (userId2) {
+              if (socket2.connected) {
+                socket2.disconnect();
+              }
+              socket2.io.opts.query = { userId: userId2 };
+              socket2.connect();
+            } else {
+              socket2.disconnect();
+            }
+          });
+      });
+
+      // Create socket connections
+      const socket1 = io(baseUrl, {
+        autoConnect: false, // Don't connect automatically
+      });
+      const socket2 = io(baseUrl, {
+        autoConnect: false, // Don't connect automatically
+      });
+
+      // Receive call notification for user 1
+      socket1.on("call", (msg) => {
+        const item = document.createElement("li");
+        item.textContent = `Meeting has been scheduled by ${
+          msg.createdBy?.fullName || msg.createdBy?.username
+        } for ${msg?.attendees?.length} people including you, at ${
+          msg.starting
+        } with the topic "${msg.topic}" and timezone "${msg.timezone}"`;
+        item.className = msg.receiverId === userId1 ? "received" : "sent";
+        document.getElementById("callList1").appendChild(item);
+      });
+
+      // Receive call notification for user 2
+      socket2.on("call", (msg) => {
+        const item = document.createElement("li");
+        item.textContent = `Meeting has been scheduled by ${
+          msg.createdBy?.fullName || msg.createdBy?.username
+        } for ${msg?.attendees?.length} people including you, at ${
+          msg.starting
+        } with the topic "${msg.topic}" and timezone "${msg.timezone}"`;
+        item.className = msg.receiverId === userId2 ? "received" : "sent";
+        document.getElementById("callList2").appendChild(item);
+      });
+    </script>
+  </body>
+</html>
